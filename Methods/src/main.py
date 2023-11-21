@@ -23,7 +23,7 @@ if __name__ == '__main__':
     q_S = None
     u_bar = None
 
-    method = VBPP(X, kernel, num_points)
+    method = VBPP(X, kernel, num_points, q_mu, q_S, u_bar)
 
     print(method.T)
     print(method.inducing_points)
