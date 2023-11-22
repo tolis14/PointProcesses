@@ -9,8 +9,9 @@ class SquaredExponential:
 
     def __init__(self, variance: torch.Tensor,
                  lengthscale: torch.Tensor):
+        d = len(lengthscale)
         self.variance = variance
-        self.covar_module = kernels.RBFKernel().initialize(lengthscale=lengthscale)
+        self.covar_module = kernels.RBFKernel(ard_num_dims=d).initialize(lengthscale=lengthscale)
 
     def set_lengthscale(self, lengthscale: torch.Tensor):
         self.covar_module.lengthscale = lengthscale

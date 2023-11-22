@@ -1,10 +1,17 @@
-import gpytorch.kernels
 import torch
 from src.data_loader import load_synth_data, load_real_data
-from kernels.kernels_wrapper import SquaredExponential
+from src.kernels.concrete_kernels import SquaredExponential
 from src.models.vbpp.model import VBPP
 
-
+def initialize_L(M: int):
+    l = torch.zeros(int((M + 1) * M / 2))
+    k = 0
+    for i in range(M):
+        for j in range(0, i+1):
+            if j == i:
+                l[k] = 1
+            k += 1
+    return l
 
 if __name__ == '__main__':
 
@@ -17,16 +24,21 @@ if __name__ == '__main__':
 
     d = X.shape[1]
 
-    variance = torch.tensor(1.)
-    lengthscales = torch.tensor(1.)
-    kernel = SquaredExponential(variance, lengthscales)
-    num_points = int(20 ** (1/d))
-    q_mu = torch.zeros(num_points ** d)
-    q_S = torch.eye(num_points ** d)
+    variance = torch.tensor([1.])
+    lengthscales = torch.ones(d)
+    params = {'variance': variance, 'lengthscales': lengthscales}
+    kernel = SquaredExponential(params)
+
+    num_points = int(25 ** (1/d))
+
+    q_mu = torch.ones(num_points ** d)
+    L = initialize_L(num_points ** d)
     u_bar = torch.zeros(num_points ** d)
 
-    method = VBPP(X, kernel, num_points, q_mu, q_S, u_bar)
+    method = VBPP(X, kernel, num_points, q_mu, L, u_bar)
+    method.train()
+    method.predict()
 
 
-    exit(0)
+
 
