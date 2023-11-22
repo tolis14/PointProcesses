@@ -10,10 +10,10 @@ class VBPP(ModelBase):
         """
         :param X: Data points
         :param kernel: covariance module
-        :param num_points: number (M) of inducing points
+        :param num_points: total number M ** d of inducing points, (M) at each dimension
         :param q_mu: mean of the variational distribution
         :param q_S: covariance of the variational distribution
-        :param u_bar: constant offset of p(u) = N(u', Kzz)
+        :param u_bar: prior mean of p(u) = N(u', Kzz)
         """
 
         super().__init__(X, kernel)
@@ -48,22 +48,19 @@ class VBPP(ModelBase):
         d = self.d
         return self._one_dimensional_grid() if d == 1 else self._two_dimensional_grid()
 
-    def _kl_divergance(self, K_zz: torch.Tensor):
+    def _kl_divergance(self, K_zz: torch.Tensor, K_zz_inv: torch.Tensor):
 
         # store some intermidiate variables
-        K_zz_inv = torch.linalg.inv(K_zz)
         means_distance = self.ubar - self.q_mu
 
         # calculate KL divergance terms
         first_term = torch.trace(K_zz_inv @ self.q_S)
         second_term = -torch.logdet(K_zz) + torch.logdet(self.q_S)
-        third_term = -self.num_points
+        third_term = -self.num_points ** self.d
         fourth_term = means_distance @ K_zz_inv @ means_distance
 
         # full KL divergance
         return 0.5 * (first_term + second_term + third_term + fourth_term)
-
-
 
 
     def _caclulate_psi_matrix(self):
@@ -74,6 +71,18 @@ class VBPP(ModelBase):
         :return: Ψ integral
         """
         pass
+
+    def _integral_term(self, K_zz_inv: torch.Tensor, Psi: torch.Tensor):
+        """
+        Method for calculating the integral term in the elbo
+        according to equations 12, 13, 14, 15, 16
+        """
+        pass
+
+
+    def elbo(self):
+       pass
+
 
     def train(self):
         pass
