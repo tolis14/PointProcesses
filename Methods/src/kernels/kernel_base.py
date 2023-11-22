@@ -16,6 +16,9 @@ class KernelBase:
         self.variance = params['variance']
         self.lengthscales = params['lengthscales']
 
+    def set_variance(self, variance: torch.Tensor):
+        self.variance = variance
+
     def get_params(self) -> dict:
         return {'variance': self.variance,
                  'lengthscales': self.lengthscales}

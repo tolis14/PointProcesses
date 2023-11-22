@@ -1,31 +1,33 @@
+import matplotlib.pyplot as plt
 import torch
 from src.data_loader import load_synth_data, load_real_data
 from src.kernels.concrete_kernels import SquaredExponential
 from src.models.vbpp.model import VBPP
 
 def initialize_L(M: int):
-    l = torch.zeros(int((M + 1) * M / 2))
+    l = torch.zeros(int((M + 1) * M / 2), dtype=torch.float)
     k = 0
     for i in range(M):
         for j in range(0, i+1):
             if j == i:
-                l[k] = 1
+                l[k] = 1.
             k += 1
     return l
 
 if __name__ == '__main__':
 
-    intensity = lambda s: 5 * torch.sin(s) + 6
-    max_time = 5.
-    bound = 11.
+    #intensity = lambda s: 5 * torch.sin(s ** 2) + 6
+    intensity = lambda t: 2 * torch.exp(- t / 15) + torch.exp(-1. * ((t - 25.) / 10.) ** 2)
+    max_time = 50
+    bound = 2.2
 
     X = load_synth_data(intensity, max_time, bound)
     #X = load_real_data('redwoodfull')
 
     d = X.shape[1]
 
-    variance = torch.tensor([1.])
-    lengthscales = torch.ones(d)
+    variance = torch.tensor([0.3])
+    lengthscales = torch.ones(d) * 2.5
     params = {'variance': variance, 'lengthscales': lengthscales}
     kernel = SquaredExponential(params)
 
@@ -37,7 +39,18 @@ if __name__ == '__main__':
 
     method = VBPP(X, kernel, num_points, q_mu, L, u_bar)
     method.train()
-    method.predict()
+    print(method.kernel.get_params())
+
+
+    X_test = torch.linspace(method.T[0][0], method.T[0][1], 200).reshape(-1, 1)
+    pred_int = method.predict(X_test)
+
+    plt.plot(X_test, intensity(X_test))
+    plt.plot(X_test, pred_int.detach().numpy(), linestyle='dotted')
+    plt.scatter(X, torch.zeros_like(X), marker='|', c='black')
+    plt.show()
+
+
 
 
 

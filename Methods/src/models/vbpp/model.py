@@ -1,7 +1,7 @@
-import numpy as np
 import torch
 from src.models.model_base import ModelBase, KernelBase
 from src.models.vbpp.G_lookup import np_Gtilde_lookup
+from torchmin import minimize
 
 
 class VBPP(ModelBase):
@@ -89,8 +89,9 @@ class VBPP(ModelBase):
         prod_term = (torch.erf(left_erf_arg) - torch.erf(right_erf_arg))
         erf_term = torch.prod(prod_term, dim=-1)
 
+        psi_matrix = self.kernel.get_variance() ** 2 * left_product_term * erf_term
 
-        return self.kernel.get_variance() ** 2 * left_product_term * erf_term
+        return psi_matrix + torch.eye(psi_matrix.shape[0]) * 1e-4
 
     def _integral_term(self, K_zz_inv: torch.Tensor, Psi: torch.Tensor):
         """
@@ -115,7 +116,7 @@ class VBPP(ModelBase):
         S_hat = K_xx - Kxz @ K_zz_inv @ Kzx \
                      + Kxz @ K_zz_inv @ q_S @ K_zz_inv @ Kzx
         s_hat = torch.diag(S_hat)
-        s_hat[s_hat <= 0] = 1e-6 #shouldn't be negative but it is for some reason???
+        #s_hat[s_hat <= 0] = 1e-6 #shouldn't be negative but it is for some reason???
 
         G_arg = -mu_hat ** 2 / (2 * s_hat)
         log_arg = s_hat / 2
@@ -128,7 +129,7 @@ class VBPP(ModelBase):
         self.update_params(augmented_vector)
 
         #compute matrices required by all terms
-        K_zz = self.kernel(self.inducing_points)
+        K_zz = self.kernel(self.inducing_points, jitter=1e-5)
         K_zz_inv = torch.linalg.inv(K_zz)
         K_xz = self.kernel(self.X, self.inducing_points, jitter=False)
         K_xx = self.kernel(self.X)
@@ -140,7 +141,8 @@ class VBPP(ModelBase):
         integral_term = self._integral_term(K_zz_inv, Psi)
 
         #compute full elbo
-        return -integral_term + expecation_term - kl_term
+        full_elbo = -integral_term + expecation_term - kl_term
+        return full_elbo
 
     def _compute_q_S(self, trigl: torch.Tensor) -> torch.Tensor:
         L = torch.zeros(size=(self.num_points ** self.d, self.num_points ** self.d))
@@ -161,7 +163,7 @@ class VBPP(ModelBase):
         L = augemented_vector[self.d + 1 + self.num_points ** self.d:]
 
         kernel_new_params = {'variance': theta[0], 'lengthscales': theta[1:]}
-        self.kernel.set_params(kernel_new_params)
+        #self.kernel.set_params(kernel_new_params)
         self.q_mu = m
         self.L = L
 
@@ -181,24 +183,26 @@ class VBPP(ModelBase):
         L_init = self.L
         y = torch.cat([theta_init, m_init, L_init])
         y_hat = y.clone().requires_grad_(True)
-
-
         optimizer = torch.optim.Adam([y_hat], lr=0.01, maximize=True)
-        for i in range(2000):
+
+        for i in range(2500):
+
             optimizer.zero_grad()
             loss = self.elbo(y_hat)
             loss.backward()
             optimizer.step()
+
             with (torch.no_grad()):
                 y_hat[0 : self.d+1] = y_hat[0 : self.d+1].clamp(0.01, torch.inf)
                 y_hat[self.d + 1 + self.num_points ** self.d:] = \
-                                y_hat[self.d + 1 + self.num_points ** self.d:].clamp(0.01, torch.inf)
-            print(torch.norm(y_hat.grad, p=2))
+                                y_hat[self.d + 1 + self.num_points ** self.d:].clamp(0.05, torch.inf)
+
+            print(torch.norm(y_hat.grad, p=2), loss)
 
     def predict(self, X_star: torch.Tensor):
         K_zz = self.kernel(self.inducing_points)
         K_zz_inv = torch.linalg.inv(K_zz)
-        K_xz = self.kernel(X_star, self.inducing_points)
+        K_xz = self.kernel(X_star, self.inducing_points, jitter=False)
         K_zx = K_xz.t()
         K_xx = self.kernel(X_star, X_star)
         S = self._compute_q_S(self.L)
