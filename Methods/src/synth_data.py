@@ -19,7 +19,7 @@ class PoissonProcess:
         that they also used there. If 0 events provided, the N(S) is drawn from
         the Poisson distribution with mean λ*|S|
         """
-        #torch.manual_seed(2) #reproducability
+        torch.manual_seed(2) #reproducability
         num_of_points = int(torch.distributions.Poisson(rate=self.max_time * self.bound).sample())
 
         homo_samples,_ = torch.sort(torch.distributions.Uniform(0, self.max_time).sample(torch.Size([num_of_points])))

@@ -26,14 +26,14 @@ if __name__ == '__main__':
 
     d = X.shape[1]
 
-    variance = torch.tensor([0.3])
-    lengthscales = torch.ones(d) * 2.5
+    variance = torch.tensor([1.])
+    lengthscales = torch.ones(d) * 1.
     params = {'variance': variance, 'lengthscales': lengthscales}
     kernel = SquaredExponential(params)
 
     num_points = int(25 ** (1/d))
 
-    q_mu = torch.ones(num_points ** d)
+    q_mu = torch.zeros(num_points ** d)
     L = initialize_L(num_points ** d)
     u_bar = torch.zeros(num_points ** d)
 
@@ -46,8 +46,8 @@ if __name__ == '__main__':
     pred_int = method.predict(X_test)
 
     plt.plot(X_test, intensity(X_test))
-    plt.plot(X_test, pred_int.detach().numpy(), linestyle='dotted')
-    plt.scatter(X, torch.zeros_like(X), marker='|', c='black')
+    plt.plot(X_test, pred_int.detach().numpy(), linestyle='--')
+    plt.scatter(X, torch.zeros_like(X), marker='x', c='black', s=5.)
     plt.show()
 
 

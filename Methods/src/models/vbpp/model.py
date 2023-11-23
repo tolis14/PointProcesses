@@ -1,7 +1,7 @@
 import torch
+from torchmin import minimize_constr
 from src.models.model_base import ModelBase, KernelBase
 from src.models.vbpp.G_lookup import np_Gtilde_lookup
-from torchmin import minimize
 
 
 class VBPP(ModelBase):
@@ -124,7 +124,7 @@ class VBPP(ModelBase):
 
         return (-np_Gtilde_lookup(G_arg.detach().numpy())[0] + torch.log(log_arg) - C).sum()
 
-    def elbo(self, augmented_vector: torch.Tensor):
+    def elbo(self, augmented_vector: torch.Tensor) -> torch.Tensor:
         #update the params of the model
         self.update_params(augmented_vector)
 
@@ -142,13 +142,13 @@ class VBPP(ModelBase):
 
         #compute full elbo
         full_elbo = -integral_term + expecation_term - kl_term
-        return full_elbo
+        return torch.tensor(-1.) * full_elbo
 
     def _compute_q_S(self, trigl: torch.Tensor) -> torch.Tensor:
         L = torch.zeros(size=(self.num_points ** self.d, self.num_points ** self.d))
         L[torch.tril_indices(self.num_points ** self.d, self.num_points ** self.d, offset=0).tolist()] = trigl
         S = L @ L.t()
-        return S
+        return S + torch.eye(S.shape[0]) * 1e-5
 
     def update_params(self, augemented_vector: torch.Tensor):
         """
@@ -163,7 +163,7 @@ class VBPP(ModelBase):
         L = augemented_vector[self.d + 1 + self.num_points ** self.d:]
 
         kernel_new_params = {'variance': theta[0], 'lengthscales': theta[1:]}
-        #self.kernel.set_params(kernel_new_params)
+        self.kernel.set_params(kernel_new_params)
         self.q_mu = m
         self.L = L
 
@@ -183,21 +183,24 @@ class VBPP(ModelBase):
         L_init = self.L
         y = torch.cat([theta_init, m_init, L_init])
         y_hat = y.clone().requires_grad_(True)
-        optimizer = torch.optim.Adam([y_hat], lr=0.01, maximize=True)
 
-        for i in range(2500):
+        optimizer = torch.optim.LBFGS([y_hat], lr=0.001, max_iter=4,
+                    line_search_fn="strong_wolfe")
 
+        def closure() -> torch.Tensor:
             optimizer.zero_grad()
             loss = self.elbo(y_hat)
             loss.backward()
-            optimizer.step()
-
             with (torch.no_grad()):
-                y_hat[0 : self.d+1] = y_hat[0 : self.d+1].clamp(0.01, torch.inf)
+                y_hat[0: self.d + 1] = y_hat[0: self.d + 1].clamp(0.01, torch.inf)
                 y_hat[self.d + 1 + self.num_points ** self.d:] = \
-                                y_hat[self.d + 1 + self.num_points ** self.d:].clamp(0.05, torch.inf)
+                    y_hat[self.d + 1 + self.num_points ** self.d:].clamp(0.05, torch.inf)
+            return loss
 
-            print(torch.norm(y_hat.grad, p=2), loss)
+        for i in range(100):
+            optimizer.step(closure)
+            print(torch.norm(y_hat.grad, p=2))
+
 
     def predict(self, X_star: torch.Tensor):
         K_zz = self.kernel(self.inducing_points)
