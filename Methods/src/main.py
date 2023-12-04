@@ -1,54 +1,80 @@
-import matplotlib.pyplot as plt
+"""
+import numpy as np
+#from src.kernels.concrete_kernels import SquaredExponential
+#from src.models.vbpp.model import VBPP
+#from src.models.rhks.model import RHKS
+"""
+import numpy as np
 import torch
+import matplotlib.pyplot as plt
+import pandas as pd
 from src.data_loader import load_synth_data, load_real_data
-from src.kernels.concrete_kernels import SquaredExponential
-from src.models.vbpp.model import VBPP
-
-def initialize_L(M: int):
-    l = torch.zeros(int((M + 1) * M / 2), dtype=torch.float)
-    k = 0
-    for i in range(M):
-        for j in range(0, i+1):
-            if j == i:
-                l[k] = 1.
-            k += 1
-    return l
+from general_checker import *
 
 if __name__ == '__main__':
 
-    #intensity = lambda s: 5 * torch.sin(s ** 2) + 6
-    intensity = lambda t: 2 * torch.exp(- t / 15) + torch.exp(-1. * ((t - 25.) / 10.) ** 2)
-    max_time = 50
-    bound = 2.2
+    # 1D synthetic dataset
+    X = torch.Tensor([
+        1.7345089191961298,
+        0.7168442153304712,
+        1.522658701236610,
+        1.996865664270993,
+        1.2825802994353745,
+        0.9692800188689177,
+        1.045222911792033,
+        2.9997956125716008,
+        3.548130296149658,
+        0.10480472773824301,
+        3.5439439802042436,
+        0.8757914474587192,
+        0.632784556201901,
+        0.31985619451470104,
+        4.331469130152144,
+        2.8507816583680965,
+        1.2616261024455833,
+        2.9145627753909222,
+        2.812175716410698,
+        4.48798636611463,
+        0.58251251159124,
+        3.766580122456904,
+        2.7322079425448464,
+    ]).reshape(-1, 1)
+    intensity = lambda t: 5 * torch.sin(t ** 2) + 6
+    max_time = 5.
 
-    X = load_synth_data(intensity, max_time, bound)
-    #X = load_real_data('redwoodfull')
+    # 2D synthetic dataset
+    X = load_real_data('redwoodfull')
 
-    d = X.shape[1]
+    # Laplace approximation
+    d = len(X[0])
+    N = 32
+    w_hat, hess_inv = laplace_approximation(X, N)
 
-    variance = torch.tensor([1.])
-    lengthscales = torch.ones(d) * 1.
-    params = {'variance': variance, 'lengthscales': lengthscales}
-    kernel = SquaredExponential(params)
+    # Predictive Distribution
+    X_test = X
+    PHI_X_test = create_feature_matrix(X_test, N)
 
-    num_points = int(25 ** (1/d))
+    pred_mean = w_hat @ PHI_X_test
+    pred_var = torch.diag(PHI_X_test.t() @ torch.linalg.inv(hess_inv) @ PHI_X_test)
 
-    q_mu = torch.zeros(num_points ** d)
-    L = initialize_L(num_points ** d)
-    u_bar = torch.zeros(num_points ** d)
+    a = (pred_mean ** 2 + pred_var) ** 2 / ((2 * pred_var) *  (2 * pred_mean ** 2 + pred_var))
+    b = (2 * pred_mean ** 2 * pred_var + pred_var ** 2) / (pred_mean ** 2 + pred_var)
 
-    method = VBPP(X, kernel, num_points, q_mu, L, u_bar)
-    method.train()
-    print(method.kernel.get_params())
+    sample = torch.distributions.Gamma(concentration=a, rate=1/b).sample(torch.Size([5000]))
+    intensity_mean = torch.mean(sample, dim=0)
+    print(intensity_mean)
 
-
-    X_test = torch.linspace(method.T[0][0], method.T[0][1], 200).reshape(-1, 1)
-    pred_int = method.predict(X_test)
-
+    """
+    plt.plot(X_test, intensity_mean)
     plt.plot(X_test, intensity(X_test))
-    plt.plot(X_test, pred_int.detach().numpy(), linestyle='--')
-    plt.scatter(X, torch.zeros_like(X), marker='x', c='black', s=5.)
+    plt.plot(X, torch.zeros_like(X), linestyle='None', marker='|', c='black', markersize=10,
+             label='observations')
+    plt.xlim(0, max_time)
     plt.show()
+    """
+
+
+
 
 
 

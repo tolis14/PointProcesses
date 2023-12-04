@@ -1,6 +1,9 @@
+import numpy as np
+import pandas
 import torch
 from pandas import read_csv
 from synth_data import PoissonProcess
+
 
 def load_synth_data(intensity: callable, max_time: torch.float, bound: torch.float):
     pp = PoissonProcess(intensity, max_time, bound)
