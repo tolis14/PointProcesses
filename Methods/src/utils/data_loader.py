@@ -1,16 +1,12 @@
-import numpy as np
-import pandas
 import torch
 from pandas import read_csv
-from synth_data import PoissonProcess
-
+from src.synth_data import PoissonProcess
 
 def load_synth_data(intensity: callable, max_time: torch.float, bound: torch.float):
     pp = PoissonProcess(intensity, max_time, bound)
     pp.simulate()
     data = pp.get_data()
     return data
-
 
 def load_real_data(dataset_name: str):
     path = '../data/' + dataset_name + '.csv'
