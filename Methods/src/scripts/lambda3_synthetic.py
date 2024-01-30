@@ -1,10 +1,14 @@
+import time
 import torch
 import gpflow.kernels
 from src.utils.data_loader import load_synth_data
 from src.models.rkhs.model import RKHS
 from src.models.vbpp.vbpp_wrapper import VbppWrapper
+from src.models.lbpp.model import LBPP
 from src.kernels.concrete_kernels import SquaredExponential
 from src.utils.plotter import plot_1D_results
+from src.utils.metrics import get_poisson_realization
+from src.utils.results_saver import save_model_realizations
 
 
 def piecewise_linear(X: torch.Tensor):
@@ -16,8 +20,9 @@ def piecewise_linear(X: torch.Tensor):
 
 
 if __name__ == '__main__':
+
     # simulate the data
-    # torch.manual_seed(3)
+    torch.manual_seed(3)
     intensity_fn = lambda t: piecewise_linear(t)
     max_time = 100.
     bound = 3.
@@ -27,12 +32,13 @@ if __name__ == '__main__':
     ground_truth = intensity_fn(X_test)
 
     pred_intensities = []
-    methods = ['RKHS', 'VBPP']
+    methods = ['RKHS', 'VBPP', 'LBPP', 'OSGCP']
+    times = []
 
     # --------------------------------------------------------RKHS----------------------------------------------------#
     # initialize the model
     kernel = SquaredExponential({'variance': torch.tensor([1.]), 'lengthscales': torch.tensor([1.])})
-    model = RKHS(data[0], kernel, m=100, n=100, low_rank=False)
+    rkhs_model = RKHS(data[0], kernel, m=32, n=32, low_rank=False)
 
     # choose hyperparameter space for the model
     # Here it is inevitable to make some assumption
@@ -44,9 +50,11 @@ if __name__ == '__main__':
 
     # train the model
     params = {'scales': scales, 'gammas': gammas, 'lengthscales': lengthscales, 'true_intensity': intensity_fn}
-    model.train_synthetic_data(data, params)
-    print(model)
-    pred_intensities.append(model.predict(X_test))
+    start = time.time()
+    rkhs_model.train_synthetic_data(data, params)
+    end = time.time()
+    pred_intensities.append(rkhs_model.predict(X_test))
+    times.append(end - start)
     # -----------------------------------------------------------------------------------------------------------------#
 
 
@@ -54,11 +62,43 @@ if __name__ == '__main__':
     # initilize and train the model
     vbpp_model = VbppWrapper(
         X=data[0],
-        kernel=gpflow.kernels.SquaredExponential(variance=1., lengthscales=8.),
-        M=10
-    ).train()
+        kernel=gpflow.kernels.SquaredExponential(variance=1.25, lengthscales=7.5),
+        M=32
+    )
+    start = time.time()
+    vbpp_model.train()
+    end = time.time()
     pred_intensities.append(vbpp_model.predict(X_test)[0])
+    times.append(end - start)
+    # ----------------------------------------------------------------------------------------------------------------#
+
+
+    # --------------------------------------------------------LBPP----------------------------------------------------#
+    # initilize and train the model
+    lbpp_model = LBPP(data[0], N=32, a=torch.Tensor([0.07]), b=torch.Tensor([35.]), m=2,
+                      domain_bounds=torch.tensor([[0., max_time]]))
+    start = time.time()
+    lbpp_model.train()
+    end = time.time()
+    pred_intensities.append(lbpp_model.predict(X_test))
+    times.append(end - start)
+    # ----------------------------------------------------------------------------------------------------------------#
+
+    # -------------------------------------------------------OSGCP----------------------------------------------------#
+    osgcp_predict = torch.load('..//..//william_results//synth3_posterior_mean.pt')
+    pred_intensities.append(osgcp_predict)
     # ----------------------------------------------------------------------------------------------------------------#
 
     # plot results
-    plot_1D_results(data[0], X_test, pred_intensities, methods, ground_truth)
+    plot_1D_results(data[0], X_test, pred_intensities, methods, ground_truth, 'synth3')
+
+    # get Poisson Process realizations for each model
+    #vbpp_samples = [get_poisson_realization(vbpp_model, max_time, X_test) for _ in range(100)]
+    #lbpp_samples = [get_poisson_realization(lbpp_model, max_time, X_test) for _ in range(100)]
+    #rkhs_samples = [get_poisson_realization(rkhs_model, max_time, X_test) for _ in range(100)]
+
+    #save_model_realizations({'lbpp': lbpp_samples, 'vbpp': vbpp_samples, 'rkhs': rkhs_samples}, 'synth3')
+    #save_model_realizations({'rkhs': rkhs_samples}, 'synth3')
+
+    # get times
+    print(times)

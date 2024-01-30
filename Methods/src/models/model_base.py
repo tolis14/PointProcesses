@@ -28,3 +28,9 @@ class ModelBase:
 
     def predict(self, X_star: torch.Tensor):
         pass
+
+    def get_sample(self, X_star: torch.Tensor, num_samples:int=1) -> torch.Tensor:
+        """
+        Method to draw samples from the predictive distribution
+        """
+        pass

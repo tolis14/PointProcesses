@@ -110,3 +110,7 @@ class VbppWrapper:
         lambda_mean, lower, upper = self.model.predict_lambda_and_percentiles(X_star)
         lambda_mean, lower, upper = lambda_mean.numpy(), lower.numpy(), upper.numpy()
         return torch.tensor(lambda_mean), torch.tensor(lower), torch.tensor(upper)
+
+    def get_sample(self, X_star: torch.Tensor, num_samples:int=1):
+        X_star = X_star.numpy()
+        return self.model.get_sample(X_star, num_samples)

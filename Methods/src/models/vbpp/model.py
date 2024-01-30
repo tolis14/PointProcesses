@@ -21,9 +21,12 @@ Use at your own risk!
 
 from typing import Optional
 import gpflow
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from functools import reduce
+
+import torch
 from gpflow import Parameter
 from gpflow import kullback_leiblers
 from gpflow.config import default_float
@@ -320,6 +323,17 @@ class VBPP(gpflow.models.GPModel, gpflow.models.ExternalDataTrainingLossMixin):
         lambda_lower = f2ov_lower * var_f
         lambda_upper = f2ov_upper * var_f
         return lambda_mean, lambda_lower, lambda_upper
+
+    def get_sample(self, X_star: np.ndarray, num_samples:int=1):
+        Kuu = self.compute_Kuu()
+        post_mean, post_cov = self.predict_f(X_star, full_cov=True, Kuu=Kuu)
+        post_cov = tf.reshape(post_cov, (len(X_star), len(X_star)))
+        post_mean, post_cov = post_mean.numpy(), post_cov.numpy()
+        post_mean, post_cov = torch.from_numpy(post_mean).flatten(), torch.from_numpy(post_cov)
+        post_cov += torch.eye(post_cov.shape[0]) * 1e-5
+        sample = torch.distributions.MultivariateNormal(post_mean, post_cov).sample(torch.Size([num_samples]))
+        sample = sample ** 2
+        return sample
 
     def predict_y(self, Xnew):
         raise NotImplementedError("Not useful in Poisson models: use predict_lambda instead!")

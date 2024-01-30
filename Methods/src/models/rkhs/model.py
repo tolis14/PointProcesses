@@ -31,7 +31,7 @@ class RKHS(ModelBase):
 
     def get_domain_grid(self) -> torch.Tensor:
         """
-        This method constructs a grid of size m ** d
+        This method constructs a grid of size n ** d
         over the domain of the point Process.
         This grid is used in the calculation of ~K_ux with the Nystrom method,
         which is required for the estimation of the integral term in the unpenalized log likelihood.
@@ -233,7 +233,7 @@ class RKHS(ModelBase):
 
                 errors[model_idx] += mse
                 model_idx += 1
-                print(model_idx)
+                #print(model_idx)
 
         errors /= len(train_test_indices)  # get average error
 
@@ -266,6 +266,20 @@ class RKHS(ModelBase):
         f = self.kxx_nystrom(X_star, self.X) @ self.a
         intensity = self.model_params['mu'] * f ** 2
         return intensity
+
+    def get_sample(self, X_star: torch.Tensor, num_samples:int=1) -> torch.Tensor:
+        """
+        Normally this method is implemented for Bayesian methods
+        i.e a predictive distribution is available.
+        This method follows a frequentist approach and
+        does not support a predictive distribution.
+        However, for comparison reasons with the other models,
+        we will just draw the posterior mean at X_star locations
+        In other words we just make predictions in the new data points X*.
+        Since this is not a random sample, but the posterior mean,
+        the results highly favors this method [I wish it was Bayesian....]
+        """
+        return self.predict(X_star).reshape(1, -1)
 
     def __str__(self):
         return 'scale: ' + str(self.model_params['mu']) \
