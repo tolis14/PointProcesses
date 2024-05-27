@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import gpflow.kernels
 from src.utils.data_loader import load_real_data
 from src.models.rkhs.model import RKHS
@@ -58,4 +59,11 @@ if __name__ == '__main__':
     plot_2D_results(X, X_axis, Y_axis, pred_intensity, method='lbpp', dataset=dataset_name)
     # -----------------------------------------------------------------------------------------------------------------#
 
-
+    # ------------------------------------------------MCMC-------------------------------------------------------------#
+    path = '..//..//mcmc_results//intensity_samples_mcmc_redwood.npy'
+    mcmc_samples = torch.tensor(np.load(path))  # load precomputed samples, see models/mcmc
+    posterior_mean = mcmc_samples.mean(dim=0).mean(dim=0)
+    X_axis = torch.linspace(domain[0][0], domain[0][1], 40)  # mcmc is really expensive
+    Y_axis = torch.linspace(domain[0][0], domain[0][1], 40)  # mcmc is really expensive
+    plot_2D_results(X, X_axis, Y_axis, posterior_mean, method='mcmc', dataset=dataset_name)
+    # -----------------------------------------------------------------------------------------------------------------#

@@ -32,11 +32,11 @@ def plot_1D_results(data_points: torch.Tensor,
 
     plt.xlabel('$\mathcal{X}$')
     plt.ylabel(r'$f(x)$')
-    """
+
     plt.savefig('..//..//figures//1D_synthetic//' + filename + '.png',
                 bbox_inches='tight',
                 dpi=400)
-    """
+
     plt.show()
 
 
@@ -64,10 +64,9 @@ def plot_2D_results(data: torch.Tensor,
     #plt.colorbar(contourf)
     #plt.title(method)
 
-    """
+
     plt.savefig('..//..//figures//2D_real//' + dataset + '_' + method +  '.png',
                 bbox_inches='tight',
                 dpi=400)
-    """
 
     plt.show()

@@ -1,5 +1,6 @@
 import time
 import torch
+import numpy as np
 import gpflow.kernels
 from src.utils.data_loader import load_synth_data
 from src.models.rkhs.model import RKHS
@@ -7,7 +8,7 @@ from src.models.vbpp.vbpp_wrapper import VbppWrapper
 from src.models.lbpp.model import LBPP
 from src.kernels.concrete_kernels import SquaredExponential
 from src.utils.plotter import plot_1D_results
-from src.utils.metrics import get_poisson_realization
+from src.utils.metrics import get_poisson_realization, MSE
 from src.utils.results_saver import save_model_realizations
 
 
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     ground_truth = intensity_fn(X_test)
 
     pred_intensities = []
-    methods = ['RKHS', 'VBPP', 'LBPP', 'OSGCP']
+    methods = ['RKHS', 'VBPP', 'LBPP', 'MCMC', 'OSGCP']
     times = []
 
     # --------------------------------------------------------RKHS----------------------------------------------------#
@@ -84,6 +85,14 @@ if __name__ == '__main__':
     times.append(end - start)
     # ----------------------------------------------------------------------------------------------------------------#
 
+    # -------------------------------------------------------MCMC-----------------------------------------------------#
+    path = '..//..//mcmc_results//intensity_samples_mcmc_synth3.npy'
+    mcmc_samples = torch.tensor(np.load(path))  # load precomputed samples, see models/mcmc
+    mcmc_predict = mcmc_samples.mean(dim=0).mean(dim=0)
+    pred_intensities.append(mcmc_predict)
+    # ----------------------------------------------------------------------------------------------------------------#
+
+
     # -------------------------------------------------------OSGCP----------------------------------------------------#
     osgcp_predict = torch.load('..//..//william_results//synth3_posterior_mean.pt')
     pred_intensities.append(osgcp_predict)
@@ -91,6 +100,10 @@ if __name__ == '__main__':
 
     # plot results
     plot_1D_results(data[0], X_test, pred_intensities, methods, ground_truth, 'synth3')
+
+    # MSE scores calculation
+    mcmc_mse = MSE(mcmc_predict, ground_truth)
+    print(mcmc_mse)
 
     # get Poisson Process realizations for each model
     #vbpp_samples = [get_poisson_realization(vbpp_model, max_time, X_test) for _ in range(100)]

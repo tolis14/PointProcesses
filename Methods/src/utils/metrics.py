@@ -2,7 +2,8 @@ import torch
 from src.utils.synth_data import HomoPoissonProcess, reject, HomoPoissonPrcoess2D, reject2D
 
 def MSE(pred_intensity, ground_truth):
-    pass
+    loss = torch.nn.MSELoss()
+    return loss(pred_intensity, ground_truth)
 
 def get_poisson_realization(model, max_time: float, X_star: torch.Tensor):
     sample_for_max = model.get_sample(X_star)
