@@ -1,7 +1,0 @@
-torch~=2.0.1+cu118
-matplotlib~=3.7.1
-pandas~=2.1.1
-scipy~=1.11.3
-gpflow~=2.9.0
-numpy~=1.23.0
-tensorflow~=2.14.0
